@@ -1,0 +1,238 @@
+@using System.Security.Claims
+@page "/lessons"
+@attribute [Authorize]
+@inject CalBotContext Db
+
+<PageTitle>Расписание — CalBot</PageTitle>
+
+<h1>Расписание</h1>
+<p class="muted">Шаблон пар на 2 недели. Чётность недели рассчитывается автоматически.</p>
+
+<div class="task-add-card" style="margin-bottom: 20px; max-width: none;">
+    <h3 style="margin-top: 0;">Экспорт расписания</h3>
+    <p style="font-size: 13px; color: #6b7280; margin: 0 0 12px;">
+        Скачать CSV с расписанием. Открывается в Excel, Google Sheets, Numbers.
+    </p>
+
+    <form method="get" action="/export/lessons" style="margin-bottom: 12px;">
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
+            <input type="date" name="from" value="@_exportFrom"
+                   style="flex: 1; min-width: 140px; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+            <span style="color: #6b7280;">—</span>
+            <input type="date" name="to" value="@_exportTo"
+                   style="flex: 1; min-width: 140px; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+            <button type="submit" class="btn-primary" style="padding: 8px 20px;">
+                Скачать на период
+            </button>
+        </div>
+    </form>
+
+    <form method="get" action="/export/lessons">
+        <input type="hidden" name="template" value="true" />
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 13px; color: #6b7280;">
+                Или скачать шаблон без дат — только 2 недели
+            </span>
+            <button type="submit" class="btn-secondary" style="padding: 8px 20px; margin-left: auto;">
+                Скачать шаблон
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="lessons-grid">
+    @foreach (var week in new[] { 1, 2 })
+    {
+        <div class="week-col">
+            <h2 class="week-title">Неделя @week</h2>
+
+            @foreach (var wd in Weekdays)
+            {
+                var dayLessons = _lessons
+                    .Where(l => l.Week == week && l.Weekday == wd.Key)
+                    .OrderBy(l => l.Slot)
+                    .ToList();
+
+                <div class="day-block">
+                    <div class="day-block-title">@wd.Value</div>
+
+                    @if (dayLessons.Count == 0)
+                    {
+                        <p class="muted small">—</p>
+                    }
+                    else
+                    {
+                        <ul class="lesson-list">
+                            @foreach (var l in dayLessons)
+                            {
+                                <li class="lesson-item">
+                                    <div class="lesson-head">
+                                        <span class="lesson-slot">@l.Slot.</span>
+                                        <span class="lesson-time">@TimeFormatting.Range(l.StartTime, l.EndTime)</span>
+                                        <span class="lesson-subject">@l.Subject</span>
+                                        @if (!string.IsNullOrWhiteSpace(l.Room))
+                                        {
+                                            <span class="lesson-room">@l.Room</span>
+                                        }
+                                        <button class="btn-x" @onclick="() => DeleteLesson(l)" title="Удалить">×</button>
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(l.Teacher))
+                                    {
+                                        <div class="lesson-teacher">@l.Teacher</div>
+                                    }
+                                </li>
+                            }
+                        </ul>
+                    }
+
+                    <button class="btn-add-lesson" @onclick="() => OpenAdd(week, wd.Key)">+ Добавить</button>
+
+                    @if (_adding && _addWeek == week && _addWeekday == wd.Key)
+                    {
+                        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding: 10px; background: #eef2ff; border-radius: 8px;">
+                            <input type="number" min="1" max="8"
+                                   value="@_newSlot"
+                                   @oninput="e => _newSlot = int.TryParse(e.Value?.ToString(), out var v) ? v : 1"
+                                   placeholder="№"
+                                   style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <input type="time"
+                                       value="@_newStartTime"
+                                       @oninput="e => _newStartTime = e.Value?.ToString() ?? string.Empty"
+                                       title="Начало"
+                                       style="flex: 1; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+                                <span style="color: #6b7280;">—</span>
+                                <input type="time"
+                                       value="@_newEndTime"
+                                       @oninput="e => _newEndTime = e.Value?.ToString() ?? string.Empty"
+                                       title="Окончание"
+                                       style="flex: 1; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+                            </div>
+                            <input type="text"
+                                   value="@_newSubject"
+                                   @oninput="e => _newSubject = e.Value?.ToString() ?? string.Empty"
+                                   placeholder="Предмет"
+                                   style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+                            <input type="text"
+                                   value="@_newTeacher"
+                                   @oninput="e => _newTeacher = e.Value?.ToString() ?? string.Empty"
+                                   placeholder="Преподаватель"
+                                   style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+                            <input type="text"
+                                   value="@_newRoom"
+                                   @oninput="e => _newRoom = e.Value?.ToString() ?? string.Empty"
+                                   placeholder="Аудитория"
+                                   style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+                            <div style="display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px;">
+                                <button class="btn-primary" @onclick="SaveLesson">ОК</button>
+                                <button class="btn-secondary" @onclick="CancelAdd">Отмена</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+    private static readonly Dictionary<DayOfWeek, string> Weekdays = new()
+    {
+        [DayOfWeek.Monday] = "Понедельник",
+        [DayOfWeek.Tuesday] = "Вторник",
+        [DayOfWeek.Wednesday] = "Среда",
+        [DayOfWeek.Thursday] = "Четверг",
+        [DayOfWeek.Friday] = "Пятница",
+        [DayOfWeek.Saturday] = "Суббота",
+        [DayOfWeek.Sunday] = "Воскресенье"
+    };
+
+    private List<Lesson> _lessons = new();
+    private long _userId;
+
+    private bool _adding;
+    private int _addWeek;
+    private DayOfWeek _addWeekday;
+
+    private int _newSlot = 1;
+    private string _newStartTime = "";
+    private string _newEndTime = "";
+    private string _newSubject = "";
+    private string _newTeacher = "";
+    private string _newRoom = "";
+    private string _exportFrom = "";
+    private string _exportTo = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is null) return;
+
+        var state = await AuthState;
+        var claim = state.User.FindFirst(ClaimTypes.NameIdentifier);
+        if (claim is null || !long.TryParse(claim.Value, out var id)) return;
+
+        _userId = id;
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        _exportFrom = today.ToString("yyyy-MM-dd");
+        _exportTo = today.AddDays(30).ToString("yyyy-MM-dd");
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _lessons = await Db.Lessons
+            .Where(l => l.UserId == _userId)
+            .OrderBy(l => l.Week).ThenBy(l => l.Weekday).ThenBy(l => l.Slot)
+            .ToListAsync();
+    }
+
+    private void OpenAdd(int week, DayOfWeek wd)
+    {
+        _adding = true;
+        _addWeek = week;
+        _addWeekday = wd;
+        _newSlot = 1;
+        _newStartTime = "";
+        _newEndTime = "";
+        _newSubject = "";
+        _newTeacher = "";
+        _newRoom = "";
+    }
+
+    private void CancelAdd() => _adding = false;
+
+    private async Task SaveLesson()
+    {
+        if (string.IsNullOrWhiteSpace(_newSubject)) return;
+
+        Db.Lessons.Add(new Lesson
+        {
+            UserId = _userId,
+            Week = _addWeek,
+            Weekday = _addWeekday,
+            Slot = _newSlot,
+            StartTime = TimeFormatting.Parse(_newStartTime),
+            EndTime = TimeFormatting.Parse(_newEndTime),
+            Subject = _newSubject.Trim(),
+            Teacher = string.IsNullOrWhiteSpace(_newTeacher) ? null : _newTeacher.Trim(),
+            Room = string.IsNullOrWhiteSpace(_newRoom) ? null : _newRoom.Trim()
+        });
+
+        await Db.SaveChangesAsync();
+        _adding = false;
+        await LoadAsync();
+    }
+
+    private async Task DeleteLesson(Lesson l)
+    {
+        var entity = await Db.Lessons.FindAsync(l.Id);
+        if (entity is null) return;
+        Db.Lessons.Remove(entity);
+        await Db.SaveChangesAsync();
+        await LoadAsync();
+    }
+}

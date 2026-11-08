@@ -1,0 +1,382 @@
+@using System.Security.Claims
+@page "/tasks"
+@attribute [Authorize]
+@inject CalBotContext Db
+
+<PageTitle>Задачи — CalBot</PageTitle>
+
+<h1>Задачи</h1>
+
+<div class="task-add-card">
+    <h3 style="margin-top: 0;">Добавить задачу</h3>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <input type="date"
+               value="@_newDate"
+               @oninput="e => _newDate = e.Value?.ToString() ?? string.Empty"
+               style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="time"
+                   value="@_newStart"
+                   @oninput="e => _newStart = e.Value?.ToString() ?? string.Empty"
+                   disabled="@_newAllDay"
+                   title="Начало"
+                   style="flex: 1; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; @(_newAllDay ? "background: #f3f4f6; opacity: 0.6;" : "")" />
+            <span style="color: #6b7280;">—</span>
+            <input type="time"
+                   value="@_newEnd"
+                   @oninput="e => _newEnd = e.Value?.ToString() ?? string.Empty"
+                   disabled="@_newAllDay"
+                   title="Окончание"
+                   style="flex: 1; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; @(_newAllDay ? "background: #f3f4f6; opacity: 0.6;" : "")" />
+        </div>
+
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #6b7280; cursor: pointer;">
+            <input type="checkbox" checked="@_newAllDay" @onchange="OnNewAllDayChanged" />
+            Весь день
+        </label>
+
+        <input type="text"
+               value="@_newText"
+               @oninput="e => _newText = e.Value?.ToString() ?? string.Empty"
+               placeholder="Что сделать?"
+               style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;"
+               @onkeydown="OnNewKeyDown" />
+
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #6b7280; cursor: pointer;">
+            <input type="checkbox" checked="@_newSpecial" @onchange="e => _newSpecial = (bool)(e.Value ?? false)" />
+            ⭐ Спецзадача (подсветит день красным)
+        </label>
+
+        @if (!string.IsNullOrEmpty(_newError))
+        {
+            <div class="form-error">@_newError</div>
+        }
+
+        <button class="btn-primary"
+                style="align-self: flex-end; padding: 8px 24px;"
+                disabled="@string.IsNullOrWhiteSpace(_newText)"
+                @onclick="AddTask">Добавить</button>
+    </div>
+</div>
+
+<div class="task-add-card" style="margin-top: 16px;">
+    <h3 style="margin-top: 0;">Экспорт задач</h3>
+    <p style="font-size: 13px; color: #6b7280; margin: 0 0 12px;">
+        Скачать CSV с задачами за выбранный период. Открывается в Excel, Google Sheets, Numbers.
+    </p>
+    <form method="get" action="/export/tasks">
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
+            <input type="date" name="from" value="@_exportFrom"
+                   style="flex: 1; min-width: 140px; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+            <span style="color: #6b7280;">—</span>
+            <input type="date" name="to" value="@_exportTo"
+                   style="flex: 1; min-width: 140px; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6b7280; cursor: pointer;">
+                <input type="checkbox" name="onlyPending" value="true" />
+                Только невыполненные
+            </label>
+            <button type="submit" class="btn-primary" style="margin-left: auto; padding: 8px 20px;">
+                Скачать CSV
+            </button>
+        </div>
+    </form>
+</div>
+
+<h2 style="margin-top: 28px;">Активные</h2>
+
+@if (_tasks.Count == 0)
+{
+    <p class="muted">Активных задач нет. 🎉</p>
+}
+else
+{
+    <div class="tasks-list">
+        @foreach (var t in _tasks)
+        {
+            @if (_editingId == t.Id)
+            {
+                <div class="task-edit-card">
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <input type="date"
+                               value="@_editDate"
+                               @oninput="e => _editDate = e.Value?.ToString() ?? string.Empty"
+                               style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="time"
+                                   value="@_editStart"
+                                   @oninput="e => _editStart = e.Value?.ToString() ?? string.Empty"
+                                   disabled="@_editAllDay"
+                                   title="Начало"
+                                   style="flex: 1; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; @(_editAllDay ? "background: #f3f4f6; opacity: 0.6;" : "")" />
+                            <span style="color: #6b7280;">—</span>
+                            <input type="time"
+                                   value="@_editEnd"
+                                   @oninput="e => _editEnd = e.Value?.ToString() ?? string.Empty"
+                                   disabled="@_editAllDay"
+                                   title="Окончание"
+                                   style="flex: 1; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; @(_editAllDay ? "background: #f3f4f6; opacity: 0.6;" : "")" />
+                        </div>
+
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #6b7280; cursor: pointer;">
+                            <input type="checkbox" checked="@_editAllDay" @onchange="OnEditAllDayChanged" />
+                            Весь день
+                        </label>
+
+                        <input type="text"
+                               value="@_editText"
+                               @oninput="e => _editText = e.Value?.ToString() ?? string.Empty"
+                               placeholder="Что сделать?"
+                               style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;"
+                               @onkeydown="OnEditKeyDown" />
+
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #6b7280; cursor: pointer;">
+                            <input type="checkbox" checked="@_editSpecial" @onchange="e => _editSpecial = (bool)(e.Value ?? false)" />
+                            ⭐ Спецзадача (подсветит день красным)
+                        </label>
+
+                        @if (!string.IsNullOrEmpty(_editError))
+                        {
+                            <div class="form-error">@_editError</div>
+                        }
+
+                        <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                            <button class="btn-primary" @onclick="SaveEdit">Сохранить</button>
+                            <button class="btn-secondary" @onclick="CancelEdit">Отмена</button>
+                        </div>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="task-card @(t.Done ? "is-done" : "") @(t.IsSpecial ? "is-special" : "")">
+                    <input type="checkbox" checked="@t.Done" @onchange="() => Toggle(t)" />
+                    <div class="task-card-body">
+                        <div class="task-card-text">
+                            @if (t.IsSpecial)
+                            {
+                                <span title="Спецзадача">⭐</span>
+                            }
+                            @t.Text
+                        </div>
+                        <div class="task-card-meta">
+                            @t.Date.ToString("dd.MM.yyyy") — @DayName(t.Date.DayOfWeek)
+                            @if (TimeFormatting.Range(t.Time, t.EndTime) is { Length: > 0 } range)
+                            {
+                                <span> · @range</span>
+                            }
+                            else
+                            {
+                                <span> · весь день</span>
+                            }
+                        </div>
+                    </div>
+                    <button class="btn-edit" @onclick="() => StartEdit(t)" title="Редактировать">✎</button>
+                    <button class="btn-x" @onclick="() => Delete(t)" title="Удалить">×</button>
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+    private List<TaskItem> _tasks = new();
+    private long _userId;
+
+    private string _newDate = "";
+    private string _exportFrom = "";
+    private string _exportTo = "";
+    private string _newStart = "";
+    private string _newEnd = "";
+    private string _newText = "";
+    private bool _newAllDay;
+    private bool _newSpecial;
+    private string _newError = "";
+
+    private int? _editingId;
+    private string _editDate = "";
+    private string _editStart = "";
+    private string _editEnd = "";
+    private string _editText = "";
+    private bool _editAllDay;
+    private bool _editSpecial;
+    private string _editError = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is null) return;
+
+        var state = await AuthState;
+        var claim = state.User.FindFirst(ClaimTypes.NameIdentifier);
+        if (claim is null || !long.TryParse(claim.Value, out var id)) return;
+
+        _userId = id;
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        _newDate = today.ToString("yyyy-MM-dd");
+        _exportFrom = new DateOnly(today.Year, today.Month, 1).ToString("yyyy-MM-dd");
+        _exportTo = today.ToString("yyyy-MM-dd");
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _tasks = await Db.Tasks
+            .Where(t => t.UserId == _userId && !t.Done)
+            .OrderBy(t => t.Date).ThenBy(t => t.Time)
+            .Take(500)
+            .ToListAsync();
+    }
+
+    private void OnNewAllDayChanged(ChangeEventArgs e)
+    {
+        _newAllDay = (bool)(e.Value ?? false);
+        if (_newAllDay) { _newStart = ""; _newEnd = ""; }
+        _newError = "";
+    }
+
+    private async Task AddTask()
+    {
+        if (string.IsNullOrWhiteSpace(_newText)) return;
+
+        var start = TimeFormatting.Parse(_newStart);
+        var end = TimeFormatting.Parse(_newEnd);
+
+        if (!_newAllDay && start is null && end is null)
+        {
+            _newError = "Укажи время задачи или поставь «Весь день».";
+            return;
+        }
+
+        if (!DateOnly.TryParseExact(_newDate, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var date))
+        {
+            date = DateOnly.FromDateTime(DateTime.Today);
+        }
+
+        _newError = "";
+
+        Db.Tasks.Add(new TaskItem
+        {
+            UserId = _userId,
+            Date = date,
+            Time = _newAllDay ? null : start,
+            EndTime = _newAllDay ? null : end,
+            Text = _newText.Trim(),
+            Priority = Priority.Normal,
+            IsSpecial = _newSpecial
+        });
+        await Db.SaveChangesAsync();
+
+        _newStart = "";
+        _newEnd = "";
+        _newText = "";
+        _newAllDay = false;
+        _newSpecial = false;
+        await LoadAsync();
+    }
+
+    private async Task OnNewKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await AddTask();
+    }
+
+    private void StartEdit(TaskItem t)
+    {
+        _editingId = t.Id;
+        _editDate = t.Date.ToString("yyyy-MM-dd");
+        _editStart = t.Time?.ToString("HH\\:mm") ?? "";
+        _editEnd = t.EndTime?.ToString("HH\\:mm") ?? "";
+        _editText = t.Text;
+        _editAllDay = t.Time is null && t.EndTime is null;
+        _editSpecial = t.IsSpecial;
+        _editError = "";
+    }
+
+    private void CancelEdit()
+    {
+        _editingId = null;
+        _editError = "";
+    }
+
+    private void OnEditAllDayChanged(ChangeEventArgs e)
+    {
+        _editAllDay = (bool)(e.Value ?? false);
+        if (_editAllDay) { _editStart = ""; _editEnd = ""; }
+        _editError = "";
+    }
+
+    private async Task OnEditKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SaveEdit();
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_editingId is null) return;
+        if (string.IsNullOrWhiteSpace(_editText)) return;
+
+        var start = TimeFormatting.Parse(_editStart);
+        var end = TimeFormatting.Parse(_editEnd);
+
+        if (!_editAllDay && start is null && end is null)
+        {
+            _editError = "Укажи время или поставь «Весь день».";
+            return;
+        }
+
+        if (!DateOnly.TryParseExact(_editDate, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var date))
+        {
+            date = DateOnly.FromDateTime(DateTime.Today);
+        }
+
+        var entity = await Db.Tasks.FindAsync(_editingId.Value);
+        if (entity is null) { CancelEdit(); return; }
+
+        entity.Date = date;
+        entity.Time = _editAllDay ? null : start;
+        entity.EndTime = _editAllDay ? null : end;
+        entity.Text = _editText.Trim();
+        entity.IsSpecial = _editSpecial;
+
+        await Db.SaveChangesAsync();
+        CancelEdit();
+        await LoadAsync();
+    }
+
+    private async Task Toggle(TaskItem t)
+    {
+        var entity = await Db.Tasks.FindAsync(t.Id);
+        if (entity is null) return;
+        entity.Done = !entity.Done;
+        await Db.SaveChangesAsync();
+        await LoadAsync();
+    }
+
+    private async Task Delete(TaskItem t)
+    {
+        var entity = await Db.Tasks.FindAsync(t.Id);
+        if (entity is null) return;
+        Db.Tasks.Remove(entity);
+        await Db.SaveChangesAsync();
+        await LoadAsync();
+    }
+
+    private static string DayName(DayOfWeek d) => d switch
+    {
+        DayOfWeek.Monday => "Пн",
+        DayOfWeek.Tuesday => "Вт",
+        DayOfWeek.Wednesday => "Ср",
+        DayOfWeek.Thursday => "Чт",
+        DayOfWeek.Friday => "Пт",
+        DayOfWeek.Saturday => "Сб",
+        _ => "Вс"
+    };
+}

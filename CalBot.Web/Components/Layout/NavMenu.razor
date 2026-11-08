@@ -1,0 +1,45 @@
+@inject NavigationManager Nav
+
+<header class="navbar">
+    <div class="navbar-inner">
+        <a class="brand" href="/calendar">
+            <span class="brand-dot"></span>
+            <span class="brand-text">CalBot</span>
+        </a>
+
+        <nav class="nav-links">
+            <NavLink class="nav-link" href="/calendar" Match="NavLinkMatch.All">
+                <span class="nav-icon">📅</span>
+                <span>Календарь</span>
+            </NavLink>
+            <NavLink class="nav-link" href="/tasks">
+                <span class="nav-icon">✅</span>
+                <span>Задачи</span>
+            </NavLink>
+            <NavLink class="nav-link" href="/lessons">
+                <span class="nav-icon">📚</span>
+                <span>Расписание</span>
+            </NavLink>
+            <NavLink class="nav-link" href="/work">
+                <span class="nav-icon">💼</span>
+                <span>Работа</span>
+            </NavLink>
+            <NavLink class="nav-link" href="/account">
+                <span class="nav-icon">👤</span>
+                <span>Аккаунт</span>
+            </NavLink>
+        </nav>
+
+        <button class="btn-logout" title="Выйти" @onclick="Logout">
+            <span>Выйти</span>
+            <span class="logout-arrow">→</span>
+        </button>
+    </div>
+</header>
+
+@code {
+    private void Logout()
+    {
+        Nav.NavigateTo("/logout", forceLoad: true);
+    }
+}

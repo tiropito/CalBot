@@ -1,0 +1,371 @@
+@page "/work"
+@using System.Security.Claims
+@using CalBot.Core.Models
+@using CalBot.Core.Services
+@using System.Globalization
+@inject IShiftService ShiftService
+
+<PageTitle>Работа — CalBot</PageTitle>
+
+<h1>Работа</h1>
+
+@if (_loading)
+{
+    <p class="muted">Загрузка…</p>
+}
+else
+{
+    <div class="work-dashboard">
+        <div class="work-cards">
+            <div class="work-card">
+                <div class="work-card-label">В пути (ожидает выплаты)</div>
+                <div class="work-card-value">@_pendingNet.ToString("N2") ₽</div>
+            </div>
+            <div class="work-card">
+                <div class="work-card-label">Фактически на карте (получено)</div>
+                <div class="work-card-value">@_receivedNet.ToString("N2") ₽</div>
+            </div>
+            <div class="work-card">
+                <div class="work-card-label">Всего заработано (gross)</div>
+                <div class="work-card-value">@_totalGross.ToString("N2") ₽</div>
+            </div>
+            <div class="work-card">
+                <div class="work-card-label">Налог (6%)</div>
+                <div class="work-card-value work-card-tax">@_totalTax.ToString("N2") ₽</div>
+            </div>
+        </div>
+
+        <div class="work-cards">
+            <div class="work-card">
+                <div class="work-card-label">Отложено на долг (80% от полученного)</div>
+                <div class="work-card-value">@_receivedDebt.ToString("N2") ₽</div>
+            </div>
+            <div class="work-card">
+                <div class="work-card-label">На жизнь (20% от полученного)</div>
+                <div class="work-card-value">@_receivedLife.ToString("N2") ₽</div>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; margin-bottom: 12px;">
+            <h2 style="margin: 0;">Смены</h2>
+            <button class="btn-primary" @onclick="OpenAddForm">+ Добавить смену</button>
+        </div>
+
+        @if (_isAdding || _editingShiftId is not null)
+        {
+            <div class="task-add-card" style="margin-bottom: 20px;">
+                <h3 style="margin-top: 0;">@(_isAdding ? "Новая смена" : "Редактирование смены")</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 200px;">
+                            <label class="work-label">Начало</label>
+                            <input type="datetime-local" value="@_formStartTime" @oninput="e => _formStartTime = e.Value?.ToString() ?? string.Empty" style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px;" />
+                        </div>
+                        <div style="flex: 1; min-width: 200px;">
+                            <label class="work-label">Окончание</label>
+                            <input type="datetime-local" value="@_formEndTime" @oninput="e => _formEndTime = e.Value?.ToString() ?? string.Empty" style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px;" />
+                        </div>
+                        <div style="flex: 0 0 150px;">
+                            <label class="work-label">Ставка за час (₽)</label>
+                            <input type="number" step="10" min="0" value="@_formHourlyRate" @oninput="e => _formHourlyRate = e.Value?.ToString() ?? string.Empty" style="width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px;" />
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_formError))
+                    {
+                        <div class="form-error">@_formError</div>
+                    }
+
+                    <div style="display: flex; gap: 6px; justify-content: flex-end; margin-top: 4px;">
+                        <button class="btn-primary" @onclick="SaveShift">Сохранить</button>
+                        <button class="btn-secondary" @onclick="CancelForm">Отмена</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (_shifts.Count == 0)
+        {
+            <p class="muted">Пока нет смен. Добавь первую — начни считать, сколько и когда ты заработал.</p>
+        }
+        else
+        {
+            <div style="overflow-x: auto;">
+                <table class="work-table">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Часы</th>
+                            <th>Ставка</th>
+                            <th>На руки (net)</th>
+                            <th>Ожидаемая выплата</th>
+                            <th>В долг (80%)</th>
+                            <th>На жизнь (20%)</th>
+                            <th>Статус</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in _shifts)
+                        {
+                            var hours = ShiftService.CalculateHours(s.StartTime, s.EndTime);
+                            var gross = ShiftService.CalculateGross(hours, s.HourlyRate);
+                            var tax = ShiftService.CalculateTax(gross);
+                            var net = ShiftService.CalculateNet(gross, tax);
+                            var debt = ShiftService.CalculateDebtPart(net);
+                            var life = ShiftService.CalculateLifePart(net);
+                            var expectedDate = ShiftService.CalculateExpectedPaymentDate(s.StartTime);
+
+                            <tr class="@(s.IsPaid ? "is-paid" : "")">
+                                <td>@s.StartTime.ToString("dd.MM.yyyy HH:mm")</td>
+                                <td>@hours.ToString("0.0")</td>
+                                <td>@s.HourlyRate.ToString("N0")</td>
+                                <td><strong>@net.ToString("N2")</strong></td>
+                                <td>@expectedDate.ToString("dd.MM.yyyy")</td>
+                                <td>@debt.ToString("N2")</td>
+                                <td>@life.ToString("N2")</td>
+                                <td>
+                                    <input type="checkbox" checked="@s.IsPaid" @onchange="() => TogglePaid(s)" style="width: 18px; height: 18px; accent-color: #16a34a;" />
+                                    <span style="font-size: 12px; color: #6b7280; margin-left: 4px;">@(s.IsPaid ? "Получено" : "Ожидает")</span>
+                                </td>
+                                <td style="white-space: nowrap;">
+                                    <button class="btn-edit" @onclick="() => EditShift(s)" title="Редактировать">✎</button>
+                                    <button class="btn-x" @onclick="() => DeleteShift(s)" title="Удалить">×</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="3" style="text-align: right; font-weight: 600;">Итого:</td>
+                            <td><strong>@_totalNet.ToString("N2")</strong></td>
+                            <td></td>
+                            <td>@_totalDebt.ToString("N2")</td>
+                            <td>@_totalLife.ToString("N2")</td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private long _userId;
+    private List<Shift> _shifts = new();
+    private bool _loading = true;
+
+    private bool _isAdding;
+    private int? _editingShiftId;
+    private string _formStartTime = "";
+    private string _formEndTime = "";
+    private string _formHourlyRate = "";
+    private string _formError = "";
+
+    private decimal _totalGross;
+    private decimal _totalTax;
+    private decimal _totalNet;
+    private decimal _pendingNet;
+    private decimal _receivedNet;
+    private decimal _receivedDebt;
+    private decimal _receivedLife;
+    private decimal _totalDebt;
+    private decimal _totalLife;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is null) return;
+        var state = await AuthState;
+        var claim = state.User.FindFirst(ClaimTypes.NameIdentifier);
+        if (claim is null || !long.TryParse(claim.Value, out var id)) return;
+        _userId = id;
+
+        await LoadAsync();
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        _shifts = await ShiftService.GetShiftsAsync(_userId);
+
+        _totalGross = 0;
+        _totalTax = 0;
+        _totalNet = 0;
+        _pendingNet = 0;
+        _receivedNet = 0;
+        _receivedDebt = 0;
+        _receivedLife = 0;
+        _totalDebt = 0;
+        _totalLife = 0;
+
+        foreach (var s in _shifts)
+        {
+            var hours = ShiftService.CalculateHours(s.StartTime, s.EndTime);
+            var gross = ShiftService.CalculateGross(hours, s.HourlyRate);
+            var tax = ShiftService.CalculateTax(gross);
+            var net = ShiftService.CalculateNet(gross, tax);
+            var debt = ShiftService.CalculateDebtPart(net);
+            var life = ShiftService.CalculateLifePart(net);
+
+            _totalGross += gross;
+            _totalTax += tax;
+            _totalNet += net;
+            _totalDebt += debt;
+            _totalLife += life;
+
+            if (s.IsPaid)
+            {
+                _receivedNet += net;
+                _receivedDebt += debt;
+                _receivedLife += life;
+            }
+            else
+            {
+                _pendingNet += net;
+            }
+        }
+    }
+
+    private void OpenAddForm()
+    {
+        _isAdding = true;
+        _editingShiftId = null;
+        _formStartTime = DateTime.Today.ToString("yyyy-MM-dd") + "T09:00";
+        _formEndTime = DateTime.Today.ToString("yyyy-MM-dd") + "T18:00";
+        _formHourlyRate = "400";
+        _formError = "";
+    }
+
+    private void EditShift(Shift s)
+    {
+        _isAdding = false;
+        _editingShiftId = s.Id;
+        _formStartTime = s.StartTime.ToString("yyyy-MM-ddTHH:mm");
+        _formEndTime = s.EndTime.ToString("yyyy-MM-ddTHH:mm");
+        _formHourlyRate = s.HourlyRate.ToString("0.##");
+        _formError = "";
+    }
+
+    private void CancelForm()
+    {
+        _isAdding = false;
+        _editingShiftId = null;
+        _formError = "";
+    }
+
+    private async Task SaveShift()
+    {
+        _formError = "";
+
+        try
+        {
+            var start = ParseDateTime(_formStartTime);
+            var end = ParseDateTime(_formEndTime);
+
+            if (start is null || end is null)
+            {
+                _formError = "Проверь даты и время. Оба поля должны быть заполнены.";
+                return;
+            }
+
+            if (end < start)
+            {
+                end = end.Value.AddDays(1);
+            }
+
+            var rate = ParseDecimal(_formHourlyRate);
+            if (rate is null || rate < 0)
+            {
+                _formError = "Ставка должна быть числом >= 0.";
+                return;
+            }
+
+            // Npgsql требует, чтобы DateTime был в UTC для колонки timestamp with time zone.
+            // Переводим локальное время в UTC.
+            var startUtc = DateTime.SpecifyKind(start.Value, DateTimeKind.Local).ToUniversalTime();
+            var endUtc = DateTime.SpecifyKind(end.Value, DateTimeKind.Local).ToUniversalTime();
+
+            if (_editingShiftId is null)
+            {
+                var shift = new Shift
+                {
+                    UserId = _userId,
+                    StartTime = startUtc,
+                    EndTime = endUtc,
+                    HourlyRate = rate.Value,
+                    IsPaid = false,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await ShiftService.AddShiftAsync(shift);
+            }
+            else
+            {
+                var shift = await ShiftService.GetShiftAsync(_userId, _editingShiftId.Value);
+                if (shift is null)
+                {
+                    _formError = "Смена не найдена. Возможно, она уже удалена.";
+                    return;
+                }
+                shift.StartTime = startUtc;
+                shift.EndTime = endUtc;
+                shift.HourlyRate = rate.Value;
+                await ShiftService.UpdateShiftAsync(shift);
+            }
+
+            CancelForm();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _formError = "Ошибка сохранения: " + ex.Message;
+        }
+    }
+
+    private static DateTime? ParseDateTime(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return null;
+
+        var formats = new[]
+        {
+            "yyyy-MM-ddTHH:mm",
+            "yyyy-MM-ddTHH:mm:ss",
+            "yyyy-MM-dd HH:mm",
+            "yyyy-MM-dd HH:mm:ss"
+        };
+
+        if (DateTime.TryParseExact(s, formats, CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var dt))
+            return dt;
+
+        if (DateTime.TryParse(s, CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out dt))
+            return dt;
+
+        return null;
+    }
+
+    private static decimal? ParseDecimal(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return null;
+        s = s.Replace(',', '.');
+        if (decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
+            return d;
+        return null;
+    }
+
+    private async Task TogglePaid(Shift s)
+    {
+        await ShiftService.TogglePaidAsync(_userId, s.Id);
+        await LoadAsync();
+    }
+
+    private async Task DeleteShift(Shift s)
+    {
+        await ShiftService.DeleteShiftAsync(_userId, s.Id);
+        await LoadAsync();
+    }
+}

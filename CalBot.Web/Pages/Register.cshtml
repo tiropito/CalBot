@@ -1,0 +1,53 @@
+@page "/register"
+@model CalBot.Web.Pages.RegisterModel
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Регистрация — CalBot</title>
+    <link rel="stylesheet" href="/app.css" />
+</head>
+<body class="login-body">
+    <div class="login-card">
+        <div class="login-brand">
+            <span class="brand-dot"></span>
+            <span>CalBot</span>
+        </div>
+
+        <h1 class="login-title">Регистрация</h1>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="login-error">@Model.ErrorMessage</div>
+        }
+
+        <form method="post">
+            <div class="login-field">
+                <label for="username">Логин</label>
+                <input id="username" type="text" name="Username" value="@Model.Username"
+                       autofocus autocomplete="username" minlength="3" maxlength="32" required />
+                <span class="login-hint">3–32 символа: буквы, цифры, _, -</span>
+            </div>
+            <div class="login-field">
+                <label for="password">Пароль</label>
+                <input id="password" type="password" name="Password" autocomplete="new-password" minlength="6" required />
+                <span class="login-hint">Минимум 6 символов</span>
+            </div>
+            <div class="login-field">
+                <label for="password2">Пароль ещё раз</label>
+                <input id="password2" type="password" name="PasswordConfirm" autocomplete="new-password" minlength="6" required />
+            </div>
+            <button type="submit" class="btn-primary login-btn">Создать аккаунт</button>
+        </form>
+
+        <p class="login-footer">
+            Уже есть аккаунт? <a href="/login">Войти</a>
+        </p>
+    </div>
+</body>
+</html>

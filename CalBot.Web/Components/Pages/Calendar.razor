@@ -1,0 +1,512 @@
+@using System.Security.Claims
+@page "/"
+@page "/calendar"
+@attribute [Authorize]
+@inject CalendarService Cal
+@inject CalBotContext Db
+
+<PageTitle>Календарь — CalBot</PageTitle>
+
+<h1>Календарь</h1>
+
+<div class="cal-toolbar">
+    <div class="cal-nav">
+        <button class="btn-icon" @onclick="PrevMonth" title="Предыдущий месяц">‹</button>
+        <span class="cal-month">@MonthTitle</span>
+        <button class="btn-icon" @onclick="NextMonth" title="Следующий месяц">›</button>
+    </div>
+    <button class="btn-secondary" @onclick="GoToday">Сегодня</button>
+</div>
+
+@if (_loading)
+{
+    <p class="muted">Загрузка…</p>
+}
+else
+{
+    <div class="cal-layout">
+        <div class="cal-card">
+            <div class="cal-weekdays">
+                @foreach (var w in WeekdayNames)
+                {
+                    <div class="cal-weekday">@w</div>
+                }
+            </div>
+
+            <div class="cal-grid">
+                @foreach (var cell in _cells)
+                {
+                    <button class="cal-cell @(cell.IsCurrentMonth ? "" : "is-outside") @(cell.Day?.HasSpecialTask == true ? "is-special" : "") @(cell.Date == _selectedDate ? "is-selected" : "") @(cell.Day?.IsHoliday == true ? "is-holiday" : "") @(cell.Day?.IsFree == true ? "is-free" : "")"
+                            @onclick="() => Select(cell.Date)">
+                        <div class="cal-cell-top">
+                            <span class="cal-day-num">@cell.Date.Day</span>
+                            @if (cell.Day is not null)
+                            {
+                                <span class="cal-week-pill">@cell.Day.Week</span>
+                            }
+                        </div>
+                        @if (cell.Day is not null)
+                        {
+                            <div class="cal-cell-body">
+                                @if (cell.Day.Lessons.Count > 0)
+                                {
+                                    <span class="chip chip-lesson">📚 @cell.Day.Lessons.Count</span>
+                                }
+                                @if (cell.Day.Tasks.Count > 0)
+                                {
+                                    <span class="chip chip-task">✅ @cell.Day.Tasks.Count</span>
+                                }
+                                @if (cell.Day.SpilloverTasks.Count > 0)
+                                {
+                                    <span class="chip chip-spillover">🌙 @cell.Day.SpilloverTasks.Count</span>
+                                }
+                                @if (cell.Day.HasSpecialTask)
+                                {
+                                    <span class="chip chip-special">⭐</span>
+                                }
+                                @if (cell.Day.IsHoliday)
+                                {
+                                    <span class="chip chip-holiday">🎉</span>
+                                }
+                            </div>
+                        }
+                    </button>
+                }
+            </div>
+        </div>
+
+        <aside class="cal-detail">
+            @if (_selectedDay is null)
+            {
+                <p class="muted">Выбери день, чтобы посмотреть детали.</p>
+            }
+            else
+            {
+                <h2 class="detail-title">
+                    @_selectedDay.Date.ToString("dd.MM.yyyy") — @DayName(_selectedDay.Date.DayOfWeek)
+                    <span class="badge-week">нед. @_selectedDay.Week</span>
+                </h2>
+
+                @if (_selectedDay.IsHoliday)
+                {
+                    <p class="detail-holiday">🎉 Выходной / праздник</p>
+                }
+
+                @if (_selectedDay.Lessons.Count > 0)
+                {
+                    <h3 class="detail-section">Пары</h3>
+                    <ul class="detail-list">
+                        @foreach (var l in _selectedDay.Lessons)
+                        {
+                            <li class="lesson-detail">
+                                <div class="lesson-head">
+                                    <span class="detail-time">@TimeFormatting.Range(l.StartTime, l.EndTime)</span>
+                                    <span class="detail-text">@l.Subject</span>
+                                    @if (!string.IsNullOrWhiteSpace(l.Room))
+                                    {
+                                        <span class="detail-room">@l.Room</span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(l.Teacher))
+                                {
+                                    <div class="lesson-teacher">@l.Teacher</div>
+                                }
+                            </li>
+                        }
+                    </ul>
+                }
+
+                <h3 class="detail-section">Задачи</h3>
+                @if (_selectedDay.Tasks.Count == 0 && _selectedDay.SpilloverTasks.Count == 0)
+                {
+                    <p class="muted">Нет задач.</p>
+                }
+                else
+                {
+                    <ul class="detail-list detail-tasks">
+                        @foreach (var t in _selectedDay.Tasks)
+                        {
+                            @if (_editingTaskId == t.Id)
+                            {
+                                <li class="task-edit-form">
+                                    <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                                        <div style="display: flex; gap: 8px; align-items: center;">
+                                            <input type="time"
+                                                   value="@_editStart"
+                                                   @oninput="e => _editStart = e.Value?.ToString() ?? string.Empty"
+                                                   disabled="@_editAllDay"
+                                                   title="Начало"
+                                                   style="flex: 1; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+                                            <span style="color: #6b7280;">—</span>
+                                            <input type="time"
+                                                   value="@_editEnd"
+                                                   @oninput="e => _editEnd = e.Value?.ToString() ?? string.Empty"
+                                                   disabled="@_editAllDay"
+                                                   title="Окончание"
+                                                   style="flex: 1; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;" />
+                                        </div>
+
+                                        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7280; cursor: pointer;">
+                                            <input type="checkbox" checked="@_editAllDay" @onchange="OnEditAllDayChanged" />
+                                            Весь день
+                                        </label>
+
+                                        <input type="text"
+                                               value="@_editText"
+                                               @oninput="e => _editText = e.Value?.ToString() ?? string.Empty"
+                                               placeholder="Что сделать?"
+                                               style="width: 100%; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;"
+                                               @onkeydown="OnEditKeyDown" />
+
+                                        <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7280; cursor: pointer;">
+                                            <input type="checkbox" checked="@_editSpecial" @onchange="e => _editSpecial = (bool)(e.Value ?? false)" />
+                                            ⭐ Спецзадача
+                                        </label>
+
+                                        @if (!string.IsNullOrEmpty(_editError))
+                                        {
+                                            <div class="form-error">@_editError</div>
+                                        }
+
+                                        <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                                            <button class="btn-primary" @onclick="SaveEdit">Сохранить</button>
+                                            <button class="btn-secondary" @onclick="CancelEdit">Отмена</button>
+                                        </div>
+                                    </div>
+                                </li>
+                            }
+                            else
+                            {
+                                <li class="@(t.Done ? "is-done" : "") @(t.IsSpecial ? "is-special" : "")">
+                                    <input type="checkbox" checked="@t.Done" @onchange="() => ToggleTask(t)" />
+                                    <span class="detail-text">
+                                        @if (t.IsSpecial)
+                                        {
+                                            <span title="Спецзадача">⭐</span>
+                                        }
+                                        @t.Text
+                                    </span>
+                                    @if (TimeFormatting.Range(t.Time, t.EndTime) is { Length: > 0 } range)
+                                    {
+                                        <span class="detail-room">@range</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="detail-room">весь день</span>
+                                    }
+                                    <button class="btn-edit" @onclick="() => StartEdit(t)" title="Редактировать">✎</button>
+                                    <button class="btn-x" @onclick="() => DeleteTask(t)" title="Удалить">×</button>
+                                </li>
+                            }
+                        }
+                        @foreach (var t in _selectedDay.SpilloverTasks)
+                        {
+                            <li class="is-spillover @(t.Done ? "is-done" : "")">
+                                <input type="checkbox" checked="@t.Done" @onchange="() => ToggleTask(t)" />
+                                <span class="detail-text">
+                                    🌙 @t.Text <span style="font-size: 12px; color: #9ca3af;">(со вчера)</span>
+                                </span>
+                                @if (t.EndTime is not null)
+                                {
+                                    <span class="detail-room">до @t.EndTime.Value.ToString("HH\\:mm")</span>
+                                }
+                                <button class="btn-edit" @onclick="() => StartEdit(t)" title="Редактировать">✎</button>
+                                <button class="btn-x" @onclick="() => DeleteTask(t)" title="Удалить">×</button>
+                            </li>
+                        }
+                    </ul>
+                }
+
+                <div class="add-task-box">
+                    <h3 class="detail-section">Добавить задачу</h3>
+                    <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <input type="time"
+                                   value="@_newTaskStart"
+                                   @oninput="e => _newTaskStart = e.Value?.ToString() ?? string.Empty"
+                                   disabled="@_newTaskAllDay"
+                                   title="Начало"
+                                   style="flex: 1; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; @(_newTaskAllDay ? "background: #f3f4f6; opacity: 0.6;" : "")" />
+                            <span style="color: #6b7280;">—</span>
+                            <input type="time"
+                                   value="@_newTaskEnd"
+                                   @oninput="e => _newTaskEnd = e.Value?.ToString() ?? string.Empty"
+                                   disabled="@_newTaskAllDay"
+                                   title="Окончание"
+                                   style="flex: 1; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px; @(_newTaskAllDay ? "background: #f3f4f6; opacity: 0.6;" : "")" />
+                        </div>
+
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #6b7280; cursor: pointer;">
+                            <input type="checkbox" checked="@_newTaskAllDay" @onchange="OnAllDayChanged" />
+                            Весь день
+                        </label>
+
+                        <input type="text"
+                               value="@_newTaskText"
+                               @oninput="e => _newTaskText = e.Value?.ToString() ?? string.Empty"
+                               placeholder="Что сделать?"
+                               style="width: 100%; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 8px; font-size: 14px;"
+                               @onkeydown="OnTaskKeyDown" />
+
+                        <label style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: #6b7280; cursor: pointer;">
+                            <input type="checkbox" checked="@_newTaskSpecial" @onchange="e => _newTaskSpecial = (bool)(e.Value ?? false)" />
+                            ⭐ Спецзадача (подсветит день красным)
+                        </label>
+
+                        @if (!string.IsNullOrEmpty(_taskError))
+                        {
+                            <div class="form-error">@_taskError</div>
+                        }
+
+                        <button class="btn-primary" @onclick="AddTask"
+                                style="align-self: flex-end; padding: 8px 24px;"
+                                disabled="@string.IsNullOrWhiteSpace(_newTaskText)">Добавить</button>
+                    </div>
+                </div>
+            }
+        </aside>
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+    private static readonly string[] WeekdayNames = { "Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс" };
+
+    private DateOnly _monthCursor;
+    private DateOnly? _selectedDate;
+    private DayInfo? _selectedDay;
+    private List<DayInfo> _monthDays = new();
+    private List<CalCell> _cells = new();
+    private bool _loading = true;
+    private long _userId;
+
+    // Форма добавления
+    private string _newTaskText = "";
+    private string _newTaskStart = "";
+    private string _newTaskEnd = "";
+    private bool _newTaskAllDay;
+    private bool _newTaskSpecial;
+    private string _taskError = "";
+
+    // Форма редактирования
+    private int? _editingTaskId;
+    private string _editText = "";
+    private string _editStart = "";
+    private string _editEnd = "";
+    private bool _editAllDay;
+    private bool _editSpecial;
+    private string _editError = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is null) return;
+
+        var state = await AuthState;
+        var claim = state.User.FindFirst(ClaimTypes.NameIdentifier);
+        if (claim is null || !long.TryParse(claim.Value, out var id))
+        {
+            _loading = false;
+            return;
+        }
+
+        _userId = id;
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        _monthCursor = new DateOnly(today.Year, today.Month, 1);
+        _selectedDate = today;
+        await LoadAsync();
+        _loading = false;
+    }
+
+    private async Task LoadAsync()
+    {
+        _monthDays.Clear();
+        _cells.Clear();
+
+        var first = _monthCursor;
+        var last = _monthCursor.AddMonths(1).AddDays(-1);
+
+        var days = await Cal.BuildAsync(_userId, first, last);
+        _monthDays.AddRange(days);
+
+        var offset = ((int)first.DayOfWeek + 6) % 7;
+        var gridStart = first.AddDays(-offset);
+        var totalCells = ((offset + DateTime.DaysInMonth(first.Year, first.Month) + 6) / 7) * 7;
+
+        for (var i = 0; i < totalCells; i++)
+        {
+            var d = gridStart.AddDays(i);
+            var day = _monthDays.FirstOrDefault(x => x.Date == d);
+            _cells.Add(new CalCell(d, day, d.Month == first.Month));
+        }
+
+        _selectedDay = _selectedDate is null ? null : _monthDays.FirstOrDefault(x => x.Date == _selectedDate.Value);
+    }
+
+    private async Task PrevMonth() { _monthCursor = _monthCursor.AddMonths(-1); await LoadAsync(); }
+    private async Task NextMonth() { _monthCursor = _monthCursor.AddMonths(1); await LoadAsync(); }
+
+    private async Task GoToday()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        _monthCursor = new DateOnly(today.Year, today.Month, 1);
+        _selectedDate = today;
+        await LoadAsync();
+    }
+
+    private void Select(DateOnly d)
+    {
+        _selectedDate = d;
+        _selectedDay = _monthDays.FirstOrDefault(x => x.Date == d);
+        ResetAddForm();
+        CancelEdit();
+    }
+
+    private void ResetAddForm()
+    {
+        _newTaskText = "";
+        _newTaskStart = "";
+        _newTaskEnd = "";
+        _newTaskAllDay = false;
+        _newTaskSpecial = false;
+        _taskError = "";
+    }
+
+    private void OnAllDayChanged(ChangeEventArgs e)
+    {
+        _newTaskAllDay = (bool)(e.Value ?? false);
+        if (_newTaskAllDay) { _newTaskStart = ""; _newTaskEnd = ""; }
+        _taskError = "";
+    }
+
+    private async Task AddTask()
+    {
+        if (_selectedDate is null) return;
+        if (string.IsNullOrWhiteSpace(_newTaskText)) return;
+
+        var start = TimeFormatting.Parse(_newTaskStart);
+        var end = TimeFormatting.Parse(_newTaskEnd);
+
+        if (!_newTaskAllDay && start is null && end is null)
+        {
+            _taskError = "Укажи время задачи или поставь галочку «Весь день».";
+            return;
+        }
+
+        _taskError = "";
+
+        Db.Tasks.Add(new TaskItem
+        {
+            UserId = _userId,
+            Date = _selectedDate.Value,
+            Time = _newTaskAllDay ? null : start,
+            EndTime = _newTaskAllDay ? null : end,
+            Text = _newTaskText.Trim(),
+            Priority = Priority.Normal,
+            IsSpecial = _newTaskSpecial
+        });
+        await Db.SaveChangesAsync();
+
+        ResetAddForm();
+        await LoadAsync();
+    }
+
+    private async Task OnTaskKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await AddTask();
+    }
+
+    // ---- Редактирование ----
+
+    private void StartEdit(TaskItem t)
+    {
+        _editingTaskId = t.Id;
+        _editText = t.Text;
+        _editStart = t.Time?.ToString("HH\\:mm") ?? "";
+        _editEnd = t.EndTime?.ToString("HH\\:mm") ?? "";
+        _editAllDay = t.Time is null && t.EndTime is null;
+        _editSpecial = t.IsSpecial;
+        _editError = "";
+    }
+
+    private void CancelEdit()
+    {
+        _editingTaskId = null;
+        _editError = "";
+    }
+
+    private void OnEditAllDayChanged(ChangeEventArgs e)
+    {
+        _editAllDay = (bool)(e.Value ?? false);
+        if (_editAllDay) { _editStart = ""; _editEnd = ""; }
+        _editError = "";
+    }
+
+    private async Task OnEditKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SaveEdit();
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_editingTaskId is null) return;
+        if (string.IsNullOrWhiteSpace(_editText)) return;
+
+        var start = TimeFormatting.Parse(_editStart);
+        var end = TimeFormatting.Parse(_editEnd);
+
+        if (!_editAllDay && start is null && end is null)
+        {
+            _editError = "Укажи время или поставь «Весь день».";
+            return;
+        }
+
+        var entity = await Db.Tasks.FindAsync(_editingTaskId.Value);
+        if (entity is null) { CancelEdit(); return; }
+
+        entity.Text = _editText.Trim();
+        entity.Time = _editAllDay ? null : start;
+        entity.EndTime = _editAllDay ? null : end;
+        entity.IsSpecial = _editSpecial;
+
+        await Db.SaveChangesAsync();
+        CancelEdit();
+        await LoadAsync();
+    }
+
+    // ---- Конец редактирования ----
+
+    private async Task ToggleTask(TaskItem t)
+    {
+        var entity = await Db.Tasks.FindAsync(t.Id);
+        if (entity is null) return;
+        entity.Done = !entity.Done;
+        await Db.SaveChangesAsync();
+        await LoadAsync();
+    }
+
+    private async Task DeleteTask(TaskItem t)
+    {
+        var entity = await Db.Tasks.FindAsync(t.Id);
+        if (entity is null) return;
+        Db.Tasks.Remove(entity);
+        await Db.SaveChangesAsync();
+        await LoadAsync();
+    }
+
+    private string MonthTitle => _monthCursor.ToString("MMMM yyyy", new CultureInfo("ru-RU"));
+
+    private static string DayName(DayOfWeek d) => d switch
+    {
+        DayOfWeek.Monday => "Пн",
+        DayOfWeek.Tuesday => "Вт",
+        DayOfWeek.Wednesday => "Ср",
+        DayOfWeek.Thursday => "Чт",
+        DayOfWeek.Friday => "Пт",
+        DayOfWeek.Saturday => "Сб",
+        _ => "Вс"
+    };
+
+    private record CalCell(DateOnly Date, DayInfo? Day, bool IsCurrentMonth);
+}

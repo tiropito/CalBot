@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: calbot-db
+    environment:
+      POSTGRES_DB: calbot
+      POSTGRES_USER: calbot
+      POSTGRES_PASSWORD: calbot_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U calbot -d calbot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

@@ -1,0 +1,30 @@
+[
+  { "week": 1, "weekday": "Monday",    "slot": 1, "startTime": "09:30", "endTime": "11:00", "subject": "Системы искусственного интеллекта", "teacher": "Морочко Александр Александрович", "room": "Л-203" },
+  { "week": 1, "weekday": "Monday",    "slot": 2, "startTime": "11:15", "endTime": "12:45", "subject": "Системы искусственного интеллекта", "teacher": "Морочко Александр Александрович", "room": "Л-203" },
+
+  { "week": 1, "weekday": "Tuesday",   "slot": 1, "startTime": "09:30", "endTime": "11:00", "subject": "Управление и администрирование информационных систем", "teacher": "Герцев Константин Николаевич", "room": "А-300" },
+  { "week": 1, "weekday": "Tuesday",   "slot": 2, "startTime": "11:15", "endTime": "12:45", "subject": "Теория вычислимости", "teacher": "Говоров Павел Михайлович", "room": "А-310" },
+  { "week": 1, "weekday": "Tuesday",   "slot": 3, "startTime": "13:00", "endTime": "14:30", "subject": "Теория вычислимости", "teacher": "Говоров Павел Михайлович", "room": "А-332" },
+
+  { "week": 1, "weekday": "Wednesday", "slot": 3, "startTime": "13:00", "endTime": "14:30", "subject": "Организация и управление предприятиями", "teacher": "Артемьева Галина Станиславовна", "room": "504" },
+
+  { "week": 1, "weekday": "Friday",    "slot": 1, "startTime": "09:00", "endTime": "10:30", "subject": "Основы военной подготовки", "teacher": "Нагорнов Олег Львович", "room": "И-322" },
+  { "week": 1, "weekday": "Friday",    "slot": 2, "startTime": "10:45", "endTime": "12:15", "subject": "Основы военной подготовки", "teacher": "Нагорнов Олег Львович", "room": "И-322" },
+
+  { "week": 2, "weekday": "Monday",    "slot": 1, "startTime": "09:30", "endTime": "11:00", "subject": "Управление и администрирование информационных систем", "teacher": "Ермалович Александр Викторович, Другалев Дмитрий Андреевич", "room": "Л-211" },
+  { "week": 2, "weekday": "Monday",    "slot": 2, "startTime": "11:15", "endTime": "12:45", "subject": "Управление и администрирование информационных систем", "teacher": "Ермалович Александр Викторович, Другалев Дмитрий Андреевич", "room": "Л-211" },
+
+  { "week": 2, "weekday": "Tuesday",   "slot": 3, "startTime": "13:00", "endTime": "14:30", "subject": "Проектный практикум", "teacher": "Полищук Юрий Владимирович", "room": "А-425" },
+  { "week": 2, "weekday": "Tuesday",   "slot": 5, "startTime": "16:55", "endTime": "18:25", "subject": "Системы искусственного интеллекта", "teacher": "Заликов Руслан Артурович", "room": "А-308" },
+
+  { "week": 2, "weekday": "Wednesday", "slot": 4, "startTime": "15:10", "endTime": "16:40", "subject": "Организация и управление предприятиями", "teacher": "Артемьева Галина Станиславовна", "room": "504" },
+  { "week": 2, "weekday": "Wednesday", "slot": 5, "startTime": "16:55", "endTime": "18:25", "subject": "Организация и управление предприятиями", "teacher": "Жолтикова Полина Александровна", "room": "403а" },
+
+  { "week": 2, "weekday": "Thursday",  "slot": 1, "startTime": "09:30", "endTime": "11:00", "subject": "Системное программное обеспечение", "teacher": "Алексанян Диана Ашотовна", "room": "А-419" },
+  { "week": 2, "weekday": "Thursday",  "slot": 2, "startTime": "11:15", "endTime": "12:45", "subject": "Системное программное обеспечение", "teacher": "Алексанян Диана Ашотовна", "room": "А-419" },
+  { "week": 2, "weekday": "Thursday",  "slot": 3, "startTime": "13:00", "endTime": "14:30", "subject": "Системное программное обеспечение", "teacher": "Алексанян Д. А., Королькова Т. В., Загвоздкин В. А.", "room": "А-332" },
+  { "week": 2, "weekday": "Thursday",  "slot": 4, "startTime": "15:10", "endTime": "16:40", "subject": "Системное программное обеспечение", "teacher": "Алексанян Диана Ашотовна, Королькова Татьяна Валерьевна", "room": "А-401" },
+
+  { "week": 2, "weekday": "Friday",    "slot": 1, "startTime": "10:45", "endTime": "12:15", "subject": "Основы военной подготовки", "teacher": "Пономарёв Олег Павлович", "room": "И-321" },
+  { "week": 2, "weekday": "Friday",    "slot": 2, "startTime": "12:30", "endTime": "14:00", "subject": "Основы военной подготовки", "teacher": "Пономарёв Олег Павлович", "room": "И-321" }
+]

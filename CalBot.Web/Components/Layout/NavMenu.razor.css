@@ -1,0 +1,177 @@
+.navbar {
+    background: #ffffff;
+    border-bottom: 1px solid #ebedf0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 3px rgba(0,0,0,.03), 0 2px 8px rgba(0,0,0,.02);
+}
+
+.navbar-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* ---- Логотип ---- */
+
+.brand,
+.brand:link,
+.brand:visited,
+.brand:hover,
+.brand:active {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    color: #0d0d0d;
+    text-decoration: none;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    transition: opacity .15s ease;
+}
+
+.brand:hover {
+    opacity: 0.75;
+    text-decoration: none;
+}
+
+.brand-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4d6bfe, #7c8fff);
+    display: inline-block;
+    box-shadow: 0 0 0 3px rgba(77,107,254,.12);
+}
+
+/* ---- Ссылки навигации ---- */
+
+.nav-links {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+    margin-left: 16px;
+}
+
+.nav-link,
+.nav-link:link,
+.nav-link:visited,
+.nav-link:hover,
+.nav-link:active {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background .15s ease, color .15s ease, transform .1s ease;
+}
+
+/* Явно перебиваем браузерный фиолетовый для посещённых ссылок */
+.nav-link,
+.nav-link:visited {
+    color: #4b5563;
+}
+
+.nav-link:hover {
+    background: #f3f4f6;
+    color: #0d0d0d;
+    text-decoration: none;
+}
+
+.nav-link.active,
+.nav-link.active:link,
+.nav-link.active:visited {
+    background: #eef2ff;
+    color: #4d6bfe;
+}
+
+.nav-link.active:hover {
+    background: #e0e7ff;
+    color: #4d6bfe;
+}
+
+.nav-icon {
+    font-size: 15px;
+    line-height: 1;
+    display: inline-block;
+}
+
+/* ---- Кнопка выхода ---- */
+
+.logout-form {
+    margin: 0;
+}
+
+.btn-logout {
+    background: transparent;
+    border: 1px solid #e5e5e5;
+    color: #6b7280;
+    padding: 7px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: border-color .15s ease, color .15s ease, background .15s ease;
+    text-decoration: none;
+}
+
+.btn-logout:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: #fef2f2;
+}
+
+.btn-logout:visited {
+    color: #6b7280;
+}
+
+.logout-arrow {
+    font-size: 14px;
+    transition: transform .15s ease;
+}
+
+.btn-logout:hover .logout-arrow {
+    transform: translateX(2px);
+}
+
+/* ---- Мобильная вёрстка ---- */
+
+@media (max-width: 700px) {
+    .navbar-inner {
+        padding: 0 12px;
+        gap: 10px;
+        height: 56px;
+    }
+    .nav-links {
+        margin-left: 0;
+        gap: 2px;
+    }
+    .nav-link {
+        padding: 8px 10px;
+        font-size: 13px;
+    }
+    .nav-link .nav-icon {
+        display: none;
+    }
+    .brand-text {
+        display: none;
+    }
+    .btn-logout span:first-child {
+        display: none;
+    }
+    .btn-logout {
+        padding: 7px 10px;
+    }
+}

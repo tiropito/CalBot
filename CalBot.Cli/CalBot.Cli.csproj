@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>CalBot.Cli</RootNamespace>
+  </PropertyGroup>  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
+  </ItemGroup>  <ItemGroup>
+    <ProjectReference Include="..\CalBot.Core\CalBot.Core.csproj" />
+    <ProjectReference Include="..\CalBot.Data\CalBot.Data.csproj" />
+    <ProjectReference Include="..\CalBot.Holidays\CalBot.Holidays.csproj" />
+  </ItemGroup>  <ItemGroup>
+    <None Update="sample-lessons.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup></Project>

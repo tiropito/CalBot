@@ -1,0 +1,151 @@
+@page "/account"
+@model CalBot.Web.Pages.AccountModel
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Аккаунт — CalBot</title>
+    <link rel="stylesheet" href="/app.css" />
+</head>
+<body class="login-body">
+    <div class="login-card">
+        <div class="login-brand">
+            <span class="brand-dot"></span>
+            <span>CalBot</span>
+        </div>
+
+        <h1 class="login-title">Аккаунт</h1>
+
+        @if (Model.CurrentUser is null)
+        {
+            <p class="muted">Не авторизован.</p>
+            <p class="login-footer"><a href="/login">Войти</a></p>
+        }
+        else
+        {
+            @* ---- Информация об аккаунте ---- *@
+            <div class="account-info">
+                <div class="account-row">
+                    <span class="account-label">Логин</span>
+                    <span class="account-value">@Model.CurrentUser.Username</span>
+                </div>
+                <div class="account-row">
+                    <span class="account-label">Дата регистрации</span>
+                    <span class="account-value">@Model.CurrentUser.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+                </div>
+                <div class="account-row">
+                    <span class="account-label">Пар в расписании</span>
+                    <span class="account-value">@Model.LessonCount</span>
+                </div>
+                <div class="account-row">
+                    <span class="account-label">Активных задач</span>
+                    <span class="account-value">@Model.TaskCount</span>
+                </div>
+            </div>
+
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e5e5;" />
+
+            @* ---- Смена пароля (сворачиваемая) ---- *@
+            <button type="button" class="collapsible-toggle" onclick="toggleSection('passwordSection')">
+                <span>🔒 Сменить пароль</span>
+                <span class="collapsible-arrow">▾</span>
+            </button>
+
+            <div id="passwordSection" class="collapsible-body" style="display: none;">
+                @if (Model.PasswordMessage is not null)
+                {
+                    <div class="@(Model.PasswordSuccess ? "success-message" : "login-error")">
+                        @Model.PasswordMessage
+                    </div>
+                }
+
+                <form method="post" asp-page-handler="ChangePassword">
+                    <div class="login-field">
+                        <label for="oldPassword">Текущий пароль</label>
+                        <input id="oldPassword" type="password" name="OldPassword"
+                               autocomplete="current-password" required />
+                    </div>
+                    <div class="login-field">
+                        <label for="newPassword">Новый пароль</label>
+                        <input id="newPassword" type="password" name="NewPassword"
+                               autocomplete="new-password" minlength="6" required />
+                        <span class="login-hint">Минимум 6 символов</span>
+                    </div>
+                    <div class="login-field">
+                        <label for="newPassword2">Новый пароль ещё раз</label>
+                        <input id="newPassword2" type="password" name="NewPasswordConfirm"
+                               autocomplete="new-password" minlength="6" required />
+                    </div>
+                    <button type="submit" class="btn-primary" style="width: 100%;">Сменить пароль</button>
+                </form>
+            </div>
+
+            <hr style="margin: 20px 0; border: none; border-top: 1px solid #e5e5e5;" />
+
+            @* ---- Удаление аккаунта (тоже сворачиваемое) ---- *@
+            <button type="button" class="collapsible-toggle collapsible-danger" onclick="toggleSection('deleteSection')">
+                <span>⚠ Удалить аккаунт</span>
+                <span class="collapsible-arrow">▾</span>
+            </button>
+
+            <div id="deleteSection" class="collapsible-body" style="display: none;">
+                <p style="font-size: 13px; color: #6b7280; margin: 0 0 12px;">
+                    Все данные — расписание, задачи, история — будут удалены навсегда. Это действие необратимо.
+                </p>
+
+                @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+                {
+                    <div class="login-error">@Model.ErrorMessage</div>
+                }
+
+                <form method="post" asp-page-handler="Delete">
+                    <div class="login-field">
+                        <label for="confirm">Для подтверждения введите логин</label>
+                        <input id="confirm" type="text" name="ConfirmUsername"
+                               placeholder="@Model.CurrentUser.Username"
+                               autocomplete="off" required />
+                    </div>
+                    <button type="submit" class="btn-danger">Удалить аккаунт навсегда</button>
+                </form>
+            </div>
+
+            <p class="login-footer" style="margin-top: 24px;">
+                <a href="/">← Вернуться в календарь</a>
+            </p>
+        }
+    </div>
+
+    <script>
+        function toggleSection(id) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+
+            var btn = el.previousElementSibling;
+            if (btn && btn.classList.contains('collapsible-toggle')) {
+                var arrow = btn.querySelector('.collapsible-arrow');
+                if (arrow) arrow.textContent = el.style.display === 'block' ? '▴' : '▾';
+            }
+        }
+
+        // Если форма смены пароля вернулась с сообщением — раскрываем её сразу.
+        window.addEventListener('DOMContentLoaded', function () {
+            var msg = document.querySelector('#passwordSection .success-message, #passwordSection .login-error');
+            if (msg) {
+                var el = document.getElementById('passwordSection');
+                if (el) el.style.display = 'block';
+            }
+            var err = document.querySelector('#deleteSection .login-error');
+            if (err) {
+                var el2 = document.getElementById('deleteSection');
+                if (el2) el2.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+@page "/login"
+@model CalBot.Web.Pages.LoginModel
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Вход — CalBot</title>
+    <link rel="stylesheet" href="/app.css" />
+</head>
+<body class="login-body">
+    <div class="login-card">
+        <div class="login-brand">
+            <span class="brand-dot"></span>
+            <span>CalBot</span>
+        </div>
+
+        <h1 class="login-title">Вход</h1>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="login-error">@Model.ErrorMessage</div>
+        }
+
+        <form method="post">
+            <input type="hidden" name="returnUrl" value="@Request.Query["returnUrl"]" />
+            <div class="login-field">
+                <label for="username">Логин</label>
+                <input id="username" type="text" name="Username" value="@Model.Username" autofocus autocomplete="username" required />
+            </div>
+            <div class="login-field">
+                <label for="password">Пароль</label>
+                <input id="password" type="password" name="Password" autocomplete="current-password" required />
+            </div>
+            <button type="submit" class="btn-primary login-btn">Войти</button>
+        </form>
+
+        <p class="login-footer">
+            Нет аккаунта? <a href="/register">Зарегистрироваться</a>
+        </p>
+    </div>
+</body>
+</html>
